@@ -6,6 +6,7 @@ import time
 import csv
 import constants
 import time
+
 if len(sys.argv) != 2:
     print("Must have exactly 1 command line arg of api key. Exiting")
     exit()
@@ -34,17 +35,27 @@ headers = {
 def printerr(errsrc, e, extra_data=None):
     print(f"EXCEPTION OCCURRED IN {errsrc}: {e}")
     if extra_data != None:
-        print(f"\t {extra_data}")
+        print(f"\t{extra_data}")
 
 
 # handling for exceeding rate limit on fx that make riot api calls
-def ratelimit_decorator(*args):
-    data_obj =
+def ratelimit_decorator(fx, **kwargs):
+    data_obj = None
+    try:
+        data_obj = fx(**kwargs)
+    except Exception as e:
+        printerr(e, "RATELIMIT DECORATOR!")
+    if type(data_obj) == dict and data_obj.get('status') != None:
+        print("******RLDEC:******")
+        pp.pprint(data_obj['sma'])
+        print("******RLDEC (END):******")
+
+    return data_obj
 
 
-def get_namelist(tier, rank, page):  # Get player list by rank
+def get_namelist(**kwargs):  # Get player list by rank. kwargs = tier, rank, page
     res = requests.get(
-        f'https://na1.api.riotgames.com/lol/league/v4/entries/RANKED_SOLO_5x5/{tier}/{rank}?page={page}', headers=headers)
+        f'https://na1.api.riotgames.com/lol/league/v4/entries/RANKED_SOLO_5x5/{kwargs["tier"]}/{kwargs["rank"]}?page={kwargs["page"]}', headers=headers)
     data = json.loads(res.text)
     try:
         namelist = [d["summonerName"] for d in data]
@@ -54,19 +65,19 @@ def get_namelist(tier, rank, page):  # Get player list by rank
         return None
 
 
-def get_summoner_ids(name):
+def get_summoner_ids(**kwargs):  # kwargs = name
     to_return = dict()
     res = requests.get(
-        f'https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/{name}', headers=headers)
+        f'https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/{kwargs["name"]}', headers=headers)
     data = json.loads(res.text)
     to_return['id'] = data['id']
     to_return['puuid'] = data['puuid']
     return to_return
 
 
-def get_ranked_stats(sid):
+def get_ranked_stats(**kwargs):  # kwarg = sid
     res = requests.get(
-        f'https://na1.api.riotgames.com/lol/league/v4/entries/by-summoner/{sid}', headers=headers)
+        f'https://na1.api.riotgames.com/lol/league/v4/entries/by-summoner/{kwargs["sid"]}', headers=headers)
     data = json.loads(res.text)[0]
     to_return = dict()
     to_return['hot_streak'] = 1.0 if data['hotStreak'] == True else 0.0
@@ -78,7 +89,10 @@ def get_ranked_stats(sid):
     return to_return
 
 
-def get_champ_stats(sid, cid):
+def get_champ_stats(**kwargs):  # kwargs = sid,cid
+    sid = kwargs['sid']
+    cid = kwargs['cid']
+
     res = requests.get(
         f'https://na1.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-summoner/{sid}', headers=headers)
     data = json.loads(res.text)
@@ -92,14 +106,17 @@ def get_champ_stats(sid, cid):
         return {'championPoints': 0, 'lastPlayTime': None}
 
 
-def get_player_entry(sid):
-    rankstats = get_ranked_stats(sid)
-    champstats = get_champ_stats(sid, 22)
+def get_player_entry(**kwargs):  # kwarg = sid
+    sid = kwargs['sid']
+    rankstats = get_ranked_stats(sid=sid)
+    champstats = get_champ_stats(sid=sid, cid=22)  # HARDCODED? WHAT THE FUCK?
     to_return = {**rankstats, **champstats}
     return(to_return)
 
 
-def get_matchlist(puuid, existing_mids):
+def get_matchlist(**kwargs):  # kwargs = puuid, existing_mids
+    puuid = kwargs['puuid']
+    existing_mids = kwargs['existing_mids']
     res = requests.get(
         f'https://americas.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids?queue=420&start=0&count=20', headers=headers)
     data = json.loads(res.text)
@@ -111,7 +128,8 @@ def get_matchlist(puuid, existing_mids):
     return mids
 
 
-def get_participants(match_id):
+def get_participants(**kwargs):
+    match_id = kwargs['match_id']
     res = requests.get(
         f'https://americas.api.riotgames.com/lol/match/v5/matches/{match_id}', headers=headers)
     data = json.loads(res.text)
@@ -125,7 +143,8 @@ def get_participants(match_id):
     return participants
 
 
-def get_sid_from_puuid(puuid):
+def get_sid_from_puuid(**kwargs):
+    puuid = kwargs['puuid']
     res = requests.get(
         f'https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/{puuid}', headers=headers)
     data = json.loads(res.text)
@@ -134,7 +153,7 @@ def get_sid_from_puuid(puuid):
 
 def process_matchdata(mid):
     team_keys = ['win', 'lose']
-    summoners = get_participants(mid)
+    summoners = ratelimit_decorator(get_participants, match_id=mid)
     entry_data = {'win': None, 'lose': None}
     # sum stats of all players on winning/losing team
     for team_key in team_keys:
@@ -142,11 +161,12 @@ def process_matchdata(mid):
         denoms = {'hot_streak': 0.0, 'wr': 0.0, 'rank': 0.0, 'freshBlood': 0.0,
                   'inactive': 0.0, 'veteran': 0.0, 'championPoints': 0, 'lastPlayTime': 0}
         for puuid in summoners[team_key]:
-            sid = get_sid_from_puuid(puuid)
+            sid = ratelimit_decorator(get_sid_from_puuid, puuid=puuid)
             if entry_data[team_key] == None:
-                entry_data[team_key] = get_player_entry(sid)
+                entry_data[team_key] = ratelimit_decorator(
+                    get_player_entry, sid=sid)
             else:
-                x = get_player_entry(sid)
+                x = ratelimit_decorator(get_player_entry, sid=sid)
                 try:
 
                     for k in entry_data[team_key].keys():
@@ -178,30 +198,29 @@ def process_matchdata(mid):
     pp.pprint(lose_csvrow)
 
 
-# MAIN
-match_ids = []
+def main():
+    # MAIN
+    match_ids = []
 
-# populate list with match ids
-for i in range(1, 2):
-    namelist = get_namelist('GOLD', 'III', i)
-    try:
-        for name in namelist:
-            ids = get_summoner_ids(name)
-            match_ids.extend(get_matchlist(ids['puuid'], match_ids))
-            pp.pprint(match_ids)
-    except Exception as e:
-        printerr('(main, populate list with m_id loop)', e)
+    # populate list with match ids
+    for i in range(1, 2):
+        namelist = ratelimit_decorator(
+            get_namelist, tier='GOLD', rank='III', page=i)
+        try:
+            for name in namelist:
+                ids = ratelimit_decorator(get_summoner_ids, name=name)
+                match_ids.extend(ratelimit_decorator(get_matchlist,
+                                                     puuid=ids['puuid'], existing_mids=match_ids))
+        except Exception as e:
+            printerr('(main, populate m_id list)', e)
 
-for mid in match_ids:
-    try:
-        process_matchdata(mid)
-    except Exception as e:
-        printerr('(main, process_matchdata loop)', e)
-# for n in namelist:
-# try:
-#     process_mdata(name)
-# except KeyError:
-#     print('lmaoooooo')
-#     time.sleep(30)
-# else:
-#     print('line written')
+    # use match id list to populate input .csv for ML model
+    for mid in match_ids:
+        try:
+            process_matchdata(mid)
+        except Exception as e:
+            printerr('(main, process_matchdata loop)', e)
+
+
+if __name__ == '__main__':
+    main()
