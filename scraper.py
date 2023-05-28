@@ -21,6 +21,7 @@ headers = {
     "X-Riot-Token": api_key
 }
 
+
 # DATA WANTED PARAMETERS :
 # hot streak X
 # winrate X
@@ -30,15 +31,27 @@ headers = {
 # LAST PLAY TIME?! https://developer.riotgames.com/apis#champion-mastery-v4/GET_getChampionMastery >> see by summonerid X
 # veteran? X
 
-# Get player list by rank
+def printerr(errsrc, e, extra_data=None):
+    print(f"EXCEPTION OCCURRED IN {errsrc}: {e}")
+    if extra_data != None:
+        print(f"\t {extra_data}")
 
 
-def get_namelist(tier, rank, page):
+# handling for exceeding rate limit on fx that make riot api calls
+def ratelimit_decorator(*args):
+    data_obj =
+
+
+def get_namelist(tier, rank, page):  # Get player list by rank
     res = requests.get(
         f'https://na1.api.riotgames.com/lol/league/v4/entries/RANKED_SOLO_5x5/{tier}/{rank}?page={page}', headers=headers)
     data = json.loads(res.text)
-    namelist = [d["summonerName"] for d in data]
-    return namelist
+    try:
+        namelist = [d["summonerName"] for d in data]
+        return namelist
+    except Exception as e:
+        printerr('get_namelist', e, data)
+        return None
 
 
 def get_summoner_ids(name):
@@ -122,30 +135,47 @@ def get_sid_from_puuid(puuid):
 def process_matchdata(mid):
     team_keys = ['win', 'lose']
     summoners = get_participants(mid)
-    team_data = None
-
+    entry_data = {'win': None, 'lose': None}
     # sum stats of all players on winning/losing team
     for team_key in team_keys:
+        # dict to keep track of # entries per key for calculating mean
         denoms = {'hot_streak': 0.0, 'wr': 0.0, 'rank': 0.0, 'freshBlood': 0.0,
-                  'inactive': 0.0, 'veteran': 0.0, 'chapmionPoints': 0, 'lastPlayTime': None}
-        print(denoms)
+                  'inactive': 0.0, 'veteran': 0.0, 'championPoints': 0, 'lastPlayTime': 0}
         for puuid in summoners[team_key]:
             sid = get_sid_from_puuid(puuid)
-            if team_data == None:
-                team_data = get_player_entry(sid)
+            if entry_data[team_key] == None:
+                entry_data[team_key] = get_player_entry(sid)
             else:
                 x = get_player_entry(sid)
-                keyname = ""
                 try:
-                    for k in team_data.keys():
-                        keyname = k
+
+                    for k in entry_data[team_key].keys():
                         if x[k] != None:
-                            team_data[k] = team_data[k] + x[k]
-                            denoms[k] = denoms[k] + 1
-                except KeyError:
-                    print("lol?")
-        print(denoms)
-    # get avg
+                            # Special case: some fields might have a None entry (e.g. lastplaytime) instead of 0. handle accordingly
+                            if entry_data[team_key][k] != None:
+                                entry_data[team_key][k] = entry_data[team_key][k] + x[k]
+                                denoms[k] = denoms[k] + 1
+                            else:
+                                entry_data[team_key][k] = None
+                except Exception as e:
+                    printerr('process_matchdata', e, x)
+
+        # get team avg
+        for k in entry_data[team_key].keys():
+            if entry_data[team_key][k] != None:
+                entry_data[team_key][k] = entry_data[team_key][k] / denoms[k]
+
+    lose_csvrow = {}
+    win_csvrow = {}
+    # calc pairwise differences for the game
+    for k in entry_data['win'].keys():
+        win_csvrow[k] = entry_data['win'][k] - entry_data['lose'][k]
+        win_csvrow['outcome'] = 1
+        lose_csvrow[k] = win_csvrow[k] * -1
+        lose_csvrow['outcome'] = 0
+    print("WRITING ROWS:")
+    pp.pprint(win_csvrow)
+    pp.pprint(lose_csvrow)
 
 
 # MAIN
@@ -154,12 +184,19 @@ match_ids = []
 # populate list with match ids
 for i in range(1, 2):
     namelist = get_namelist('GOLD', 'III', i)
-    for name in [namelist[0]]:
-        ids = get_summoner_ids(name)
-        match_ids.extend(get_matchlist(ids['puuid'], match_ids))
+    try:
+        for name in namelist:
+            ids = get_summoner_ids(name)
+            match_ids.extend(get_matchlist(ids['puuid'], match_ids))
+            pp.pprint(match_ids)
+    except Exception as e:
+        printerr('(main, populate list with m_id loop)', e)
 
-for mid in match_ids[0:2]:
-    process_matchdata(mid)
+for mid in match_ids:
+    try:
+        process_matchdata(mid)
+    except Exception as e:
+        printerr('(main, process_matchdata loop)', e)
 # for n in namelist:
 # try:
 #     process_mdata(name)
