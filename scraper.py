@@ -11,6 +11,8 @@ if len(sys.argv) != 2:
     print("Must have exactly 1 command line arg of api key. Exiting")
     exit()
 
+fck = ""
+
 api_key = sys.argv[1]
 print("API KEY = " + api_key)
 pp = pprint.PrettyPrinter(indent=1)
@@ -22,18 +24,18 @@ headers = {
     "X-Riot-Token": api_key
 }
 
-
 # DATA WANTED PARAMETERS :
 # hot streak X
 # winrate X
 # champ mastery X
 # rank disparity X
 # metascore?
-# LAST PLAY TIME?! https://developer.riotgames.com/apis#champion-mastery-v4/GET_getChampionMastery >> see by summonerid X
+# LAST PLAY TIME?! https://developer.riotgames.com/apis#champion-mastery-v4/GET_getChampionMastery >> see by summonerid X. COMPUTED as # days since last playing cur champ
 # veteran? X
 
+
 def printerr(errsrc, e, extra_data=None):
-    print(f"EXCEPTION OCCURRED IN {errsrc}: {e}")
+    print(f"EXCEPTION OCCURRED IN {errsrc}: {e}; {fck}")
     if extra_data != None:
         print(f"\t{extra_data}")
 
@@ -43,12 +45,13 @@ def ratelimit_decorator(fx, **kwargs):
     data_obj = None
     try:
         data_obj = fx(**kwargs)
+        print(data_obj)
+        if type(data_obj) == dict and data_obj.get('status') != None:
+            print("******RLDEC:******")
+            pp.pprint(data_obj)
+            print("******RLDEC (END):******")
     except Exception as e:
         printerr(e, "RATELIMIT DECORATOR!")
-    if type(data_obj) == dict and data_obj.get('status') != None:
-        print("******RLDEC:******")
-        pp.pprint(data_obj['sma'])
-        print("******RLDEC (END):******")
 
     return data_obj
 
@@ -65,11 +68,13 @@ def get_namelist(**kwargs):  # Get player list by rank. kwargs = tier, rank, pag
         return None
 
 
-def get_summoner_ids(**kwargs):  # kwargs = name
+def get_summoner_ids(**kwargs):  # given in game name, return puuid kwargs = name
     to_return = dict()
     res = requests.get(
         f'https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/{kwargs["name"]}', headers=headers)
     data = json.loads(res.text)
+    print(data)
+
     to_return['id'] = data['id']
     to_return['puuid'] = data['puuid']
     return to_return
@@ -96,7 +101,6 @@ def get_champ_stats(**kwargs):  # kwargs = sid,cid
     res = requests.get(
         f'https://na1.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-summoner/{sid}', headers=headers)
     data = json.loads(res.text)
-    to_return = dict()
     cstats = [x for x in data if x['championId'] == cid]
     if len(cstats) > 0:
         cstats = cstats[0]
@@ -144,6 +148,7 @@ def get_participants(**kwargs):
 
 
 def get_sid_from_puuid(**kwargs):
+    fck = "get_sid_from_puuid"
     puuid = kwargs['puuid']
     res = requests.get(
         f'https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/{puuid}', headers=headers)
@@ -183,6 +188,8 @@ def process_matchdata(mid):
         # get team avg
         for k in entry_data[team_key].keys():
             if entry_data[team_key][k] != None:
+                if denoms[k] == 0:
+                    print("WHAT THE FUCK?!")
                 entry_data[team_key][k] = entry_data[team_key][k] / denoms[k]
 
     lose_csvrow = {}
@@ -196,6 +203,9 @@ def process_matchdata(mid):
     print("WRITING ROWS:")
     pp.pprint(win_csvrow)
     pp.pprint(lose_csvrow)
+    with open('test.csv') as fp:
+        fp.writeline(win_csvrow)
+        fp.writeline(lose_csvrow)
 
 
 def main():
@@ -203,6 +213,7 @@ def main():
     match_ids = []
 
     # populate list with match ids
+    print("***********************************************\nPOPULATING MATCH LIST\n******************************************\n")
     for i in range(1, 2):
         namelist = ratelimit_decorator(
             get_namelist, tier='GOLD', rank='III', page=i)
@@ -211,11 +222,15 @@ def main():
                 ids = ratelimit_decorator(get_summoner_ids, name=name)
                 match_ids.extend(ratelimit_decorator(get_matchlist,
                                                      puuid=ids['puuid'], existing_mids=match_ids))
+                break  # REMOVE THIS BREKA >> ADDED JUST TO REDUCE # COLLECTED MATCHIDS BECAUSE IT TAKES TOO LONG DURING DEBUG
+
         except Exception as e:
             printerr('(main, populate m_id list)', e)
 
     # use match id list to populate input .csv for ML model
     for mid in match_ids:
+        print(
+            f"***********************************************\nPOPULATING MATCH ID {mid}\n******************************************\n")
         try:
             process_matchdata(mid)
         except Exception as e:
