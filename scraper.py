@@ -40,22 +40,6 @@ def printerr(errsrc, e, extra_data=None):
         print(f"\t{extra_data}")
 
 
-# handling for exceeding rate limit on fx that make riot api calls
-def ratelimit_decorator(fx, **kwargs):
-    data_obj = None
-    try:
-        data_obj = fx(**kwargs)
-        print(data_obj)
-        if type(data_obj) == dict and data_obj.get('status') != None:
-            print("******RLDEC:******")
-            pp.pprint(data_obj)
-            print("******RLDEC (END):******")
-    except Exception as e:
-        printerr(e, "RATELIMIT DECORATOR!")
-
-    return data_obj
-
-
 def request_decorator(url):
     data = None
     try:
