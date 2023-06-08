@@ -91,6 +91,17 @@ def get_ranked_stats(sid):
     return to_return
 
 
+# stat = lastPlayTime from req obj of get_champ_stats. for None handling, just return max lastplaytime of 90 days
+def compute_lastplaytime(stat):
+    sec_per_day = 86400
+    now = time.time()
+    if stat == None:
+        return sec_per_day * 90
+
+    lastPlayTime = (now - stat)/sec_per_day
+    return min(90 * sec_per_day, lastPlayTime)
+
+
 def get_champ_stats(sid, cid):
     data = request_decorator(
         f'https://na1.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-summoner/{sid}')
@@ -98,13 +109,12 @@ def get_champ_stats(sid, cid):
     cstats = [x for x in data if x['championId'] == cid]
     if len(cstats) > 0:
         cstats = cstats[0]
-        now = time.time() * 1000
-        return {'championPoints': cstats['championPoints'], 'lastPlayTime': (now - cstats['lastPlayTime'])/(86400 * 1000)}
+        return {'championPoints': cstats['championPoints'], 'lastPlayTime': compute_lastplaytime(cstats['lastPlayTime'])}
     else:
         return {'championPoints': 0, 'lastPlayTime': None}
 
 
-def get_player_entry(sid):
+def get_player_entry(sid, cid):
     rankstats = get_ranked_stats(sid)
     champstats = get_champ_stats(sid, 22)  # HARDCODED? WHAT THE FUCK?
     to_return = {**rankstats, **champstats}
@@ -130,10 +140,11 @@ def get_participants(match_id):
     data = data['info']['participants']
     participants = {'win': [], 'lose': []}
     for p in data:
+        participant = {'puuid': p['puuid'], 'cid': p['championId']}
         if p['teamId'] == 100:
-            participants['win'].append(p['puuid'])
+            participants['win'].append(participant)
         else:
-            participants['lose'].append(p['puuid'])
+            participants['lose'].append(participant)
     return participants
 
 
@@ -154,14 +165,15 @@ def process_matchdata(mid):
         denoms = {'hot_streak': 0.0, 'wr': 0.0, 'rank': 0.0, 'freshBlood': 0.0,
                   'inactive': 0.0, 'veteran': 0.0, 'championPoints': 0, 'lastPlayTime': 0}
 
-        for puuid in summoners[team_key]:
+        for summoner in summoners[team_key]:
+            puuid = summoner['puuid']
             sid = get_sid_from_puuid(puuid=puuid)
             if entry_data[team_key] == None:
-
-                entry_data[team_key] = get_player_entry(sid=sid)
+                entry_data[team_key] = get_player_entry(
+                    sid=sid, cid=summoner['cid'])
 
             else:
-                x = get_player_entry(sid=sid)
+                x = get_player_entry(sid=sid, cid=summoner['cid'])
                 try:
 
                     for k in entry_data[team_key].keys():
@@ -179,7 +191,7 @@ def process_matchdata(mid):
         for k in entry_data[team_key].keys():
             if entry_data[team_key][k] != None:
                 if denoms[k] == 0:
-                    print("WHAT THE FUCK?!")
+                    print(f"denom {k} computed to be 0!?!")
                 entry_data[team_key][k] = entry_data[team_key][k] / denoms[k]
 
     lose_csvrow = {}
