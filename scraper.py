@@ -3,11 +3,8 @@ import requests
 import json
 import pprint
 import time
-import csv
 import constants
-import time
-import time
-
+import csv
 if len(sys.argv) != 2:
     print("Must have exactly 1 command line arg of api key. Exiting")
     exit()
@@ -50,6 +47,8 @@ def request_decorator(url):
                 print("RATELIMIT EXCEEDED: Sleeping 30s.")
                 time.sleep(30)
                 print("RESUMING!")
+                raise Exception(
+                    'Ratelimit exceeded!')
     except Exception as e:
         printerr(e, "REQUEST DECORATOR")
 
@@ -57,10 +56,9 @@ def request_decorator(url):
 
 
 def get_namelist(tier, rank, page):
-    data = request_decorator(
-        f'https://na1.api.riotgames.com/lol/league/v4/entries/RANKED_SOLO_5x5/{tier}/{rank}?page={page}')
-
     try:
+        data = request_decorator(
+            f'https://na1.api.riotgames.com/lol/league/v4/entries/RANKED_SOLO_5x5/{tier}/{rank}?page={page}')
         namelist = [d["summonerName"] for d in data]
         return namelist
     except Exception as e:
@@ -116,7 +114,7 @@ def get_champ_stats(sid, cid):
 
 def get_player_entry(sid, cid):
     rankstats = get_ranked_stats(sid)
-    champstats = get_champ_stats(sid, 22)  # HARDCODED? WHAT THE FUCK?
+    champstats = get_champ_stats(sid, cid)  # HARDCODED? WHAT THE FUCK?
     to_return = {**rankstats, **champstats}
     return(to_return)
 
@@ -175,7 +173,6 @@ def process_matchdata(mid):
             else:
                 x = get_player_entry(sid=sid, cid=summoner['cid'])
                 try:
-
                     for k in entry_data[team_key].keys():
                         if x[k] != None:
                             # Special case: some fields might have a None entry (e.g. lastplaytime) instead of 0. handle accordingly
@@ -202,12 +199,10 @@ def process_matchdata(mid):
         win_csvrow['outcome'] = 1
         lose_csvrow[k] = win_csvrow[k] * -1
         lose_csvrow['outcome'] = 0
-    print("WRITING ROWS:")
+    print("COMPUTED ROWS:")
     pp.pprint(win_csvrow)
     pp.pprint(lose_csvrow)
-    with open('test.csv') as fp:
-        fp.writeline(win_csvrow)
-        fp.writeline(lose_csvrow)
+    return [win_csvrow, lose_csvrow]
 
 
 def main():
@@ -217,8 +212,8 @@ def main():
     # populate list with match ids
     print("***********************************************\nPOPULATING MATCH LIST\n******************************************\n")
     for i in range(1, 2):
-        namelist = get_namelist(tier='GOLD', rank='III', page=i)
         try:
+            namelist = get_namelist(tier='GOLD', rank='II', page=i)
             for name in namelist:
                 ids = get_summoner_ids(name=name)
                 match_ids.extend(get_matchlist(
@@ -229,13 +224,21 @@ def main():
             printerr('(main, populate m_id list)', e)
 
     # use match id list to populate input .csv for ML model
-    for mid in match_ids:
-        print(
-            f"***********************************************\nPOPULATING MATCH ID {mid}\n******************************************\n")
-        try:
-            process_matchdata(mid)
-        except Exception as e:
-            printerr('(main, process_matchdata loop)', e)
+    with open('gold2.csv', 'w') as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=['hot_streak', 'wr', 'rank', 'freshBlood',
+                                                      'inactive', 'veteran', 'championPoints', 'lastPlayTime', 'outcome'])
+        writer.writeheader()
+        for mid in match_ids:
+            print(
+                f"***********************************************\nPOPULATING MATCH ID {mid}\n******************************************\n")
+            try:
+                matchrows = process_matchdata(mid)
+                for row in matchrows:
+                    writer.writerow(row)
+                    csv_file.flush()  # REMOVE THIS!!!!!!!!!! Just to immediately update csv during
+                    print("supposed to be writing rows")
+            except Exception as e:
+                printerr('(main, process_matchdata loop)', e)
 
 
 if __name__ == '__main__':
