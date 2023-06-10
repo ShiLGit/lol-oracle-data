@@ -5,8 +5,8 @@ import pprint
 import time
 import constants
 import csv
-if len(sys.argv) != 2:
-    print("Must have exactly 1 command line arg of api key. Exiting")
+if len(sys.argv) < 2:
+    print("Must include api key in run command (simplest case: py scraper.py <api key>). Exiting")
     exit()
 
 
@@ -39,16 +39,19 @@ def printerr(errsrc, e, extra_data=None):
 
 def request_decorator(url):
     data = None
+    request_flag = True  # flag that causes request to be reattempted on ratelimit exception
     try:
-        res = requests.get(url, headers=headers)
-        data = json.loads(res.text)
-        if type(data) == dict and data.get('status') != None:
-            if data['status'].get('status_code') == 429:
-                print("RATELIMIT EXCEEDED: Sleeping 30s.")
-                time.sleep(30)
-                print("RESUMING!")
-                raise Exception(
-                    'Ratelimit exceeded!')
+        while request_flag:
+            print(f"request to {url}")
+            res = requests.get(url, headers=headers)
+            data = json.loads(res.text)
+            if type(data) == dict and data.get('status') != None:
+                if data['status'].get('status_code') == 429:
+                    print("RATELIMIT EXCEEDED: Sleeping 30s.")
+                    time.sleep(30)
+                    print("RESUMING!")
+            else:
+                request_flag = False
     except Exception as e:
         printerr(e, "REQUEST DECORATOR")
 
@@ -205,7 +208,7 @@ def process_matchdata(mid):
     return [win_csvrow, lose_csvrow]
 
 
-def main():
+def main(tier='GOLD', rank='II'):
     # MAIN
     match_ids = []
 
@@ -213,7 +216,7 @@ def main():
     print("***********************************************\nPOPULATING MATCH LIST\n******************************************\n")
     for i in range(1, 2):
         try:
-            namelist = get_namelist(tier='GOLD', rank='II', page=i)
+            namelist = get_namelist(tier=tier, rank=rank, page=i)
             for name in namelist:
                 ids = get_summoner_ids(name=name)
                 match_ids.extend(get_matchlist(
@@ -224,7 +227,7 @@ def main():
             printerr('(main, populate m_id list)', e)
 
     # use match id list to populate input .csv for ML model
-    with open('gold2.csv', 'w') as csv_file:
+    with open(f'{tier}_{rank}.csv', 'w') as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=['hot_streak', 'wr', 'rank', 'freshBlood',
                                                       'inactive', 'veteran', 'championPoints', 'lastPlayTime', 'outcome'])
         writer.writeheader()
@@ -242,4 +245,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) == 4:  # py scraper.py API_KEY rank tier
+        main(sys.argv[2].upper(), sys.argv[3].upper())
+    else:
+        main()
