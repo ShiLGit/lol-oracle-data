@@ -45,11 +45,10 @@ def request_decorator(url):
             print(f"request to {url}")
             res = requests.get(url, headers=headers)
             data = json.loads(res.text)
-            if type(data) == dict and data.get('status') != None:
-                if data['status'].get('status_code') == 429:
-                    print("RATELIMIT EXCEEDED: Sleeping 30s.")
-                    time.sleep(30)
-                    print("RESUMING!")
+            if type(data) == dict and data.get('status') != None and data['status'].get('status_code') == 429:
+                print("RATELIMIT EXCEEDED: Sleeping 30s.")
+                time.sleep(30)
+                print("RESUMING!")
             else:
                 request_flag = False
     except Exception as e:
@@ -214,14 +213,14 @@ def main(tier='GOLD', rank='II'):
 
     # populate list with match ids
     print("***********************************************\nPOPULATING MATCH LIST\n******************************************\n")
-    for i in range(1, 2):
+    for i in range(1, 4):
         try:
             namelist = get_namelist(tier=tier, rank=rank, page=i)
             for name in namelist:
                 ids = get_summoner_ids(name=name)
                 match_ids.extend(get_matchlist(
                     puuid=ids['puuid'], existing_mids=match_ids))
-                break  # REMOVE THIS BREKA >> ADDED JUST TO REDUCE # COLLECTED MATCHIDS BECAUSE IT TAKES TOO LONG DURING DEBUG
+                # break  # REMOVE THIS BREKA >> ADDED JUST TO REDUCE # COLLECTED MATCHIDS BECAUSE IT TAKES TOO LONG DURING DEBUG
 
         except Exception as e:
             printerr('(main, populate m_id list)', e)
@@ -238,14 +237,15 @@ def main(tier='GOLD', rank='II'):
                 matchrows = process_matchdata(mid)
                 for row in matchrows:
                     writer.writerow(row)
-                    csv_file.flush()  # REMOVE THIS!!!!!!!!!! Just to immediately update csv during
                     print("supposed to be writing rows")
+
+                    csv_file.flush()
             except Exception as e:
                 printerr('(main, process_matchdata loop)', e)
 
 
 if __name__ == '__main__':
-    if len(sys.argv) == 4:  # py scraper.py API_KEY rank tier
+    if len(sys.argv) == 4:  # py scraper.py <API_KEY> <rank> <tier>
         main(sys.argv[2].upper(), sys.argv[3].upper())
     else:
         main()
