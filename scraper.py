@@ -161,7 +161,7 @@ def process_matchdata(mid):
     entry_data = {'win': None, 'lose': None}
     # sum stats of all players on winning/losing team
     for team_key in team_keys:
-        # dict to keep track of # entries per key for calculating mean
+        # dict to keep track of # entries per key for calculating mean >> one player has DNE entry? adjust accordingly
         denoms = {'hot_streak': 0.0, 'wr': 0.0, 'rank': 0.0, 'freshBlood': 0.0,
                   'inactive': 0.0, 'veteran': 0.0, 'championPoints': 0, 'lastPlayTime': 0}
 
@@ -180,14 +180,15 @@ def process_matchdata(mid):
                             # Special case: some fields might have a None entry (e.g. lastplaytime) instead of 0. handle accordingly
                             if entry_data[team_key][k] != None:
                                 entry_data[team_key][k] = entry_data[team_key][k] + x[k]
-                                denoms[k] = denoms[k] + 1
                             else:
                                 entry_data[team_key][k] = None
+                            denoms[k] = denoms[k] + 1
                 except Exception as e:
                     printerr('process_matchdata', e, x)
 
         # get team avg
         for k in entry_data[team_key].keys():
+            print(denoms)
             if entry_data[team_key][k] != None:
                 if denoms[k] == 0:
                     print(f"denom {k} computed to be 0!?!")
