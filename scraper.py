@@ -46,8 +46,8 @@ def request_decorator(url):
             res = requests.get(url, headers=headers)
             data = json.loads(res.text)
             if type(data) == dict and data.get('status') != None and data['status'].get('status_code') == 429:
-                print("RATELIMIT EXCEEDED: Sleeping 30s.")
-                time.sleep(30)
+                print("RATELIMIT EXCEEDED: Sleeping 15s.")
+                time.sleep(15)
                 print("RESUMING!")
             else:
                 request_flag = False
@@ -168,23 +168,23 @@ def process_matchdata(mid):
         for summoner in summoners[team_key]:
             puuid = summoner['puuid']
             sid = get_sid_from_puuid(puuid=puuid)
+            player_entry = get_player_entry(sid=sid, cid=summoner['cid'])
             if entry_data[team_key] == None:
-                entry_data[team_key] = get_player_entry(
-                    sid=sid, cid=summoner['cid'])
+                entry_data[team_key] = player_entry
 
-            else:
-                x = get_player_entry(sid=sid, cid=summoner['cid'])
-                try:
-                    for k in entry_data[team_key].keys():
-                        if x[k] != None:
-                            # Special case: some fields might have a None entry (e.g. lastplaytime) instead of 0. handle accordingly
-                            if entry_data[team_key][k] != None:
-                                entry_data[team_key][k] = entry_data[team_key][k] + x[k]
-                            else:
-                                entry_data[team_key][k] = None
+            try:
+                for k in entry_data[team_key].keys():
+                    if player_entry[k] != None:
+                        # Special case: some fields might have a None entry (e.g. lastplaytime) instead of 0. handle accordingly
+                        if entry_data[team_key][k] != None:
+                            entry_data[team_key][k] = entry_data[team_key][k] + \
+                                player_entry[k]
                             denoms[k] = denoms[k] + 1
-                except Exception as e:
-                    printerr('process_matchdata', e, x)
+                        else:
+                            entry_data[team_key][k] = None
+
+            except Exception as e:
+                printerr('process_matchdata', e, player_entry)
 
         # get team avg
         for k in entry_data[team_key].keys():
