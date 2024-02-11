@@ -6,7 +6,7 @@ import io
 import os
 from googleapiclient.errors import HttpError
 
-# Util fn
+# Helper func
 def dict_append(map, key, val):
     keys = map.keys()
     if key not in keys: 
@@ -14,6 +14,7 @@ def dict_append(map, key, val):
     else: 
         map[key].append(val)
 
+## INITIALIZE CONNECTION #################################################################################################
 #Create connection
 scope = ['https://www.googleapis.com/auth/drive']
 service_account_json_key = './secret/lol_oracle_jsonkey.json'
@@ -33,6 +34,7 @@ for r in results['files']:
 print(name_map)
 
 
+## START OF ACTUAL UTIL FUNCTIONS ######################################################################################
 
 # Upload file at fpath to google drive api as dst_fname 
 # Return 1 on failure, 0 on success
