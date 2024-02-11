@@ -35,7 +35,6 @@ print(name_map)
 
 
 ## START OF ACTUAL UTIL FUNCTIONS ######################################################################################
-
 # Upload file at fpath to google drive api as dst_fname 
 # Return 1 on failure, 0 on success
 def upload(dst_fname, fpath):
