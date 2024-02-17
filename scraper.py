@@ -79,16 +79,21 @@ def get_summoner_ids(name):
 
 
 def get_ranked_stats(sid):
-    data = request_decorator(
-        f'https://na1.api.riotgames.com/lol/league/v4/entries/by-summoner/{sid}')[0]
-    to_return = dict()
-    to_return['hot_streak'] = 1.0 if data['hotStreak'] == True else 0.0
-    to_return['wr'] = data['wins']/(data['wins'] + data['losses'])
-    to_return['rank'] = constants.map_rank(data['tier'], data['rank'])
-    to_return['freshBlood'] = data['freshBlood']
-    to_return['inactive'] = data['inactive']
-    to_return['veteran'] = data['veteran']
-    return to_return
+    data = None
+    try:
+        data = request_decorator(
+            f'https://na1.api.riotgames.com/lol/league/v4/entries/by-summoner/{sid}')[0]
+        to_return = dict()
+        to_return['hot_streak'] = 1.0 if data['hotStreak'] == True else 0.0
+        to_return['wr'] = data['wins']/(data['wins'] + data['losses'])
+        to_return['rank'] = constants.map_rank(data['tier'], data['rank'])
+        to_return['freshBlood'] = data['freshBlood']
+        to_return['inactive'] = data['inactive']
+        to_return['veteran'] = data['veteran']
+        return to_return
+    except Exception as e:
+        printerr("get_ranked_stats", e)
+        print(f"\tRESPONSE DATA = {data}")
 
 
 # stat = lastPlayTime from req obj of get_champ_stats. for None handling, just return max lastplaytime of 90 days
@@ -102,21 +107,27 @@ def compute_lastplaytime(stat):
     return min(90 * sec_per_day, lastPlayTime)
 
 
-def get_champ_stats(sid, cid):
-    data = request_decorator(
-        f'https://na1.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-summoner/{sid}')
+def get_champ_stats(puuid, cid):
+    data = None
+    try:
+        data = request_decorator(
+            f'https://na1.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/{puuid}/by-champion/{cid}')
+        
+        if 'status' in data.keys() and data.status['status_code'] == 404: # req will return 404 if player hasn't played champ of cid
+            #TODO None?? does that mess up the data? What about encoding them manually?
+            #TODO encode last playtime (0 for never played, 1 for >= 6 mos... go figure?), compare train on encode vs non encode
+            return {'championPoints': 0, 'lastPlayTime': None} 
 
-    cstats = [x for x in data if x['championId'] == cid]
-    if len(cstats) > 0:
-        cstats = cstats[0]
-        return {'championPoints': cstats['championPoints'], 'lastPlayTime': compute_lastplaytime(cstats['lastPlayTime'])}
-    else:
-        return {'championPoints': 0, 'lastPlayTime': None}
+        return {'championPoints': data['championPoints'], 'lastPlayTime': compute_lastplaytime(data['lastPlayTime'])}
+
+    except Exception as e:
+        printerr("get_champ_stats", e)
+        print(f"\tRESPONSE DATA = {data}")
 
 
-def get_player_entry(sid, cid):
+def get_player_entry(sid, cid, puuid):
     rankstats = get_ranked_stats(sid)
-    champstats = get_champ_stats(sid, cid)  # HARDCODED? WHAT THE FUCK?
+    champstats = get_champ_stats(puuid, cid)
     to_return = {**rankstats, **champstats}
     return(to_return)
 
@@ -159,6 +170,7 @@ def process_matchdata(mid):
     team_keys = ['win', 'lose']
     summoners = get_participants(match_id=mid)
     entry_data = {'win': None, 'lose': None}
+
     # sum stats of all players on winning/losing team
     for team_key in team_keys:
         # dict to keep track of # entries per key for calculating mean >> one player has DNE entry? adjust accordingly
@@ -168,7 +180,7 @@ def process_matchdata(mid):
         for summoner in summoners[team_key]:
             puuid = summoner['puuid']
             sid = get_sid_from_puuid(puuid=puuid)
-            player_entry = get_player_entry(sid=sid, cid=summoner['cid'])
+            player_entry = get_player_entry(sid=sid, cid=summoner['cid'], puuid = puuid)
             if entry_data[team_key] == None:
                 entry_data[team_key] = player_entry
 
@@ -214,14 +226,14 @@ def main(tier='GOLD', rank='II'):
 
     # populate list with match ids
     print("***********************************************\nPOPULATING MATCH LIST\n******************************************\n")
-    for i in range(1, 4):
+    for i in range(1, 2): #DEBUG 
         try:
             namelist = get_namelist(tier=tier, rank=rank, page=i)
             for name in namelist:
                 ids = get_summoner_ids(name=name)
                 match_ids.extend(get_matchlist(
                     puuid=ids['puuid'], existing_mids=match_ids))
-                # break  # REMOVE THIS BREKA >> ADDED JUST TO REDUCE # COLLECTED MATCHIDS BECAUSE IT TAKES TOO LONG DURING DEBUG
+                break  # REMOVE THIS BREKA >> ADDED JUST TO REDUCE # COLLECTED MATCHIDS BECAUSE IT TAKES TOO LONG DURING DEBUG
 
         except Exception as e:
             printerr('(main, populate m_id list)', e)

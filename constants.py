@@ -4,9 +4,10 @@ rank_map = {
     'SILVER': 10,
     'GOLD': 15,
     'PLATINUM': 20,
-    'DIAMOND': 25,
-    'MASTER': 30,
-    'GRANDMASTER': 35
+    'EMERALD': 25,
+    'DIAMOND': 30,
+    'MASTER': 35,
+    'GRANDMASTER': 40
 }
 
 div_map = {
