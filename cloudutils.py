@@ -1,10 +1,11 @@
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
 from googleapiclient.http import MediaIoBaseDownload
 from googleapiclient.http import MediaFileUpload
+from googleapiclient.errors import HttpError
 import io
 import os
-from googleapiclient.errors import HttpError
 
 # Helper func
 def dict_append(map, key, val):
@@ -44,10 +45,10 @@ def upload(dst_fname, fpath):
         media = MediaFileUpload(f'{fpath}')
         file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
         dict_append(name_map, dst_fname, file['id'])
-        print(f'Successfully uploaded file {file}')
+        print(f'\tSuccessfully uploaded file {file}')
         return 0
     except Exception as e: 
-        print(f'Error occurred when trying to upload {fpath} under {dst_fname}: \n\t{e}')
+        print(f'\tError occurred when trying to upload {fpath} under {dst_fname}: \n\t{e}')
         return 1
 
 # Delete all files by given fname
@@ -58,10 +59,74 @@ def delete_by_fname(fname):
         for id in name_map[fname]:
             service.files().delete(fileId=id).execute()
             deleted.append(id)
-            print(f'Successfully delete file of id = {id}')
+            print(f'\tSuccessfully delete file of id = {id}')
         #delete ids from name_map
         del name_map[fname]
         return 0
     except Exception as e:
             print(e)
             return 1
+
+# Download all files of fname locally
+def download(fname): 
+    if name_map.get(fname) == None: 
+        print("\tNo such file exists")
+    try: 
+        num_instances = len(name_map[fname])
+        for i in range(0, num_instances):
+            fid = name_map[fname][i]
+            request_file = service.files().get_media(fileId=fid)
+            file = io.BytesIO()
+            downloader = MediaIoBaseDownload(file, request_file)
+            done = False
+            while done is False:
+                status, done = downloader.next_chunk()
+                print(f'\tDownload {int(status.progress() * 100)}.')
+
+            save_name = ""
+            if num_instances == 1: 
+                save_name = fname
+            else: 
+                frags = fname.split('.')
+                frags.insert(-1, '_' + str(i))
+                save_name = ''.join(frags[:-1]) + '.' + frags[-1]
+                print(f'\tSaved as {save_name}')
+            
+            file_retrieved: str = file.getvalue()
+            with open(f"{save_name}", 'wb') as f:
+                f.write(file_retrieved)
+            print(f"Saved as {save_name}")
+    except HttpError as error:
+        print(f'\tAn error occurred: {error}')
+
+# If directly running this script instead of importing, can use as cmdline cloud 'shell' 
+if __name__ == '__main__':
+    print("######################### GOOGLE DRIVE SHELL ###############################") 
+    print("'help' for help\n'quit' to exit shell\n")
+    cmd = ""
+    while cmd != "exit":
+        inpt = input("Enter command: ").split(" ")
+        cmd = inpt[0]
+        match cmd: 
+            case "help": 
+                pass 
+            case "ls": 
+                for k in name_map.keys():
+                    print(f"\t{k}: {len(name_map[k])} instance(s)")
+            case "upload": 
+                if len(inpt) != 3:
+                    print("\tSyntax error. Command should look like 'upload <dst filename> <filepath>")
+                else: 
+                    upload(inpt[1], inpt[2])
+            case "del": 
+                if len(inpt) != 2: 
+                    print("\tSyntax erorr. Command should look like 'del <filename>'")
+                else: 
+                    delete_by_fname(inpt[1])
+            case "download": 
+                if len(inpt) != 2:
+                    print("\tSyntax error. Command should look like 'download <filename>'")
+                else: 
+                    download(inpt[1])
+            case "namemap":
+                print(name_map)
