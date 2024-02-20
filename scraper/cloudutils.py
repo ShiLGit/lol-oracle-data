@@ -96,8 +96,10 @@ def download(fname):
             with open(f"{save_name}", 'wb') as f:
                 f.write(file_retrieved)
             print(f"Saved as {save_name}")
+            return 0
     except HttpError as error:
         print(f'\tAn error occurred: {error}')
+        return 1
 
 # If directly running this script instead of importing, can use as cmdline cloud 'shell' 
 if __name__ == '__main__':

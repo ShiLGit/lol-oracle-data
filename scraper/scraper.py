@@ -207,21 +207,7 @@ def process_matchdata(mid):
     print(lose_csvrow)
     return [win_csvrow, lose_csvrow]
 
-
-def main(tier='PLAT', rank='II', apiKey = None):
-    # If scraper is called from main() instead of command line
-    if apiKey != None: 
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Accept-Charset": "application/x-www-form-urlencoded; charset=UTF-8",
-            "Origin": "https://developer.riotgames.com",
-            "X-Riot-Token": api_key
-        }
-
-
-
-    # MAIN
+def get_matchlist(tier, rank):
     match_ids = []
 
     # populate list with match ids
@@ -237,11 +223,29 @@ def main(tier='PLAT', rank='II', apiKey = None):
 
         except Exception as e:
             printerr('(main, populate m_id list)', e)
+    return match_ids
 
+def get_fname(tier, rank, chunk_num):
+    date_str = date.today().strftime("%d_%m_%Y")
+    return f"{tier}{rank}_{date_str}_{chunk_num}"
+
+def main(tier='PLAT', rank='II', apiKey = None):
+    # If scraper is called from main() instead of command line
+    if apiKey != None: 
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Charset": "application/x-www-form-urlencoded; charset=UTF-8",
+            "Origin": "https://developer.riotgames.com",
+            "X-Riot-Token": api_key
+        }
+
+    match_ids = get_matchlist(tier, rank)
+    chunk_num = 0
     # use match id list to populate input .csv for ML model
-    with open(f'../data/{tier}_{rank}.csv', 'w') as csv_file:
+    with open(f'../data/{get_fname(tier, rank, chunk_num)}.csv', 'w') as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=['hot_streak', 'wr', 'rank', 'freshBlood',
-                                                      'inactive', 'veteran', 'championPoints', 'lastPlayTime', 'outcome'])
+                                                      'inactive', 'veteran', 'championPoints', 'lastPlayTime', 'outcome']) # + m_id
         writer.writeheader()
         for mid in match_ids:
             print(
@@ -251,7 +255,6 @@ def main(tier='PLAT', rank='II', apiKey = None):
                 for row in matchrows:
                     writer.writerow(row)
                     print("supposed to be writing rows")
-
                     csv_file.flush()
             except Exception as e:
                 printerr('(main, process_matchdata loop)', e)
