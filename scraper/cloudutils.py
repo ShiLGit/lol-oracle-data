@@ -18,7 +18,7 @@ def dict_append(map, key, val):
 ## INITIALIZE CONNECTION #################################################################################################
 #Create connection
 scope = ['https://www.googleapis.com/auth/drive']
-service_account_json_key = './secret/lol_oracle_jsonkey.json'
+service_account_json_key = '../secret/lol_oracle_jsonkey.json'
 credentials = service_account.Credentials.from_service_account_file(
                               filename=service_account_json_key, 
                               scopes=scope)

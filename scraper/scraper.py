@@ -5,6 +5,7 @@ import time
 from datetime import date
 import constants as constants
 import csv
+import cloudutils
 
 api_key = None 
 headers = None
@@ -194,8 +195,9 @@ def process_matchdata(mid):
                     print(f"denom {k} computed to be 0!?!")
                 entry_data[team_key][k] = entry_data[team_key][k] / denoms[k]
 
-    lose_csvrow = {}
-    win_csvrow = {}
+    lose_csvrow = {'m_id': mid}
+    win_csvrow =  {'m_id': mid}
+
     # calc pairwise differences for the game
     for k in entry_data['win'].keys():
         win_csvrow[k] = entry_data['win'][k] - entry_data['lose'][k]
@@ -225,11 +227,14 @@ def get_matchlist_by_rank(tier, rank):
             printerr('(main, populate m_id list)', e)
     return match_ids
 
-def get_fname(tier, rank, chunk_num):
-    date_str = date.today().strftime("%d_%m_%Y")
-    return f"{tier}{rank}_{date_str}_{chunk_num}"
+def get_fname(tier, rank, chunk_num = None):
+    date_str = date.today().strftime("%d-%m-%Y")
+    if chunk_num:
+        return f"{tier}-{rank}_{date_str}_{chunk_num}"
+    else: 
+        return f"{tier}-{rank}_{date_str}"
 
-def main(apiKey, tier='PLATINUM', rank='II'):
+def main(apiKey, tier='PLATINUM', rank='II', local = False):
     global headers 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36",
@@ -241,23 +246,39 @@ def main(apiKey, tier='PLATINUM', rank='II'):
 
     match_ids = get_matchlist_by_rank(tier, rank)
     chunk_num = 0
-    # use match id list to populate input .csv for ML model
-    with open(f'../data/{get_fname(tier, rank, chunk_num)}.csv', 'w') as csv_file:
-        writer = csv.DictWriter(csv_file, fieldnames=['hot_streak', 'wr', 'rank', 'freshBlood',
-                                                      'inactive', 'veteran', 'championPoints', 'lastPlayTime', 'outcome']) # + m_id
-        writer.writeheader()
-        for mid in match_ids:
-            print(
-                f"***********************************************\nPOPULATING MATCH ID {mid}\n******************************************\n")
-            try:
-                matchrows = process_matchdata(mid)
-                for row in matchrows:
-                    writer.writerow(row)
-                    print("supposed to be writing rows")
-                    csv_file.flush()
-            except Exception as e:
-                printerr('(main, process_matchdata loop)', e)
+    filepath = f"../data/{get_fname(tier, rank)}.csv"
+    csv_fptr = open(filepath, 'w')
 
+
+    # use match id list to populate input .csv for ML model
+    writer = csv.DictWriter(csv_fptr, fieldnames=['hot_streak', 'wr', 'rank', 'freshBlood',
+                                                    'inactive', 'veteran', 'championPoints', 'lastPlayTime', 'outcome', 'm_id']) # + m_id
+    writer.writeheader()
+    row_count = 0
+    for mid in match_ids:
+        print(
+            f"***********************************************\nPOPULATING MATCH ID {mid}\n******************************************\n")
+        try:
+            matchrows = process_matchdata(mid)
+            for row in matchrows:
+                writer.writerow(row)
+                print("Writing rows..")
+                csv_fptr.flush()
+
+            # do cloud util SHIT: upload contents of working file and then clear it to be populated for next chunk upload
+            if row_count % 2 == 0 and not local: 
+                row_count = 0 
+                cloudutils.upload(filepath, get_fname(tier, rank, chunk_num))
+                print(f"UPLOADING CHUNK {chunk_num}: {get_fname(tier, rank, chunk_num)}") 
+                chunk_num = chunk_num + 1
+                csv_fptr.close() 
+                csv_fptr = open(filepath, 'w')
+
+            row_count = row_count + 1
+        except Exception as e:
+            printerr('(main, process_matchdata loop)', e)
+
+    csv_fptr.close()
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -267,6 +288,6 @@ if __name__ == '__main__':
 
     api_key = sys.argv[1]
     if len(sys.argv) == 4:  # py scraper.py <API_KEY> <rank> <tier>
-        main(apiKey=api_key, tier=sys.argv[2].upper(), rank=sys.argv[3].upper())
+        main(apiKey=api_key, tier=sys.argv[2].upper(), rank=sys.argv[3].upper(), local = True)
     else:
         main(apiKey=api_key)
