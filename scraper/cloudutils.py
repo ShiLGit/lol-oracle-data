@@ -64,7 +64,7 @@ def delete_by_fname(fname):
         del name_map[fname]
         return 0
     except Exception as e:
-            print(e)
+            print(f"ERREUR {e} (most likely fnf)")
             return 1
 
 # Download all files of fname locally
@@ -111,7 +111,15 @@ if __name__ == '__main__':
         cmd = inpt[0]
         match cmd: 
             case "help": 
-                pass 
+                print("""
+                      COMMANDS *********************************
+                      ls: print value_counts() of all files.name
+                      namemap: print raw name map that 'ls' is derived from
+                      exit: go figure
+                      upload <cloud filename> <filepath>
+                      del <cloud filename>
+                      download <cloud filename>
+                      """)
             case "ls": 
                 for k in name_map.keys():
                     print(f"\t{k}: {len(name_map[k])} instance(s)")
@@ -132,3 +140,4 @@ if __name__ == '__main__':
                     download(inpt[1])
             case "namemap":
                 print(name_map)
+            

@@ -266,7 +266,7 @@ def main(apiKey, tier='PLATINUM', rank='II', local = False):
                 csv_fptr.flush()
 
             # do cloud util SHIT: upload contents of working file and then clear it to be populated for next chunk upload
-            if row_count % 2 == 0 and not local: 
+            if row_count % 150 == 0 and not local: 
                 row_count = 0 
                 cloudutils.upload( get_fname(tier, rank, chunk_num), filepath)
                 print(f"UPLOADING CHUNK {chunk_num}: {get_fname(tier, rank, chunk_num)}") 
