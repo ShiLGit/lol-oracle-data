@@ -207,7 +207,7 @@ def process_matchdata(mid):
     print(lose_csvrow)
     return [win_csvrow, lose_csvrow]
 
-def get_matchlist(tier, rank):
+def get_matchlist_by_rank(tier, rank):
     match_ids = []
 
     # populate list with match ids
@@ -229,7 +229,7 @@ def get_fname(tier, rank, chunk_num):
     date_str = date.today().strftime("%d_%m_%Y")
     return f"{tier}{rank}_{date_str}_{chunk_num}"
 
-def main(tier='PLAT', rank='II', apiKey = None):
+def main(tier='PLATINUM', rank='II', apiKey = None):
     # If scraper is called from main() instead of command line
     if apiKey != None: 
         headers = {
@@ -240,7 +240,7 @@ def main(tier='PLAT', rank='II', apiKey = None):
             "X-Riot-Token": api_key
         }
 
-    match_ids = get_matchlist(tier, rank)
+    match_ids = get_matchlist_by_rank(tier, rank)
     chunk_num = 0
     # use match id list to populate input .csv for ML model
     with open(f'../data/{get_fname(tier, rank, chunk_num)}.csv', 'w') as csv_file:
