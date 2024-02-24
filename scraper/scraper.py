@@ -229,16 +229,15 @@ def get_fname(tier, rank, chunk_num):
     date_str = date.today().strftime("%d_%m_%Y")
     return f"{tier}{rank}_{date_str}_{chunk_num}"
 
-def main(tier='PLATINUM', rank='II', apiKey = None):
-    # If scraper is called from main() instead of command line
-    if apiKey != None: 
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Accept-Charset": "application/x-www-form-urlencoded; charset=UTF-8",
-            "Origin": "https://developer.riotgames.com",
-            "X-Riot-Token": api_key
-        }
+def main(apiKey, tier='PLATINUM', rank='II'):
+    global headers 
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Charset": "application/x-www-form-urlencoded; charset=UTF-8",
+        "Origin": "https://developer.riotgames.com",
+        "X-Riot-Token": apiKey
+    }
 
     match_ids = get_matchlist_by_rank(tier, rank)
     chunk_num = 0
@@ -267,16 +266,7 @@ if __name__ == '__main__':
 
 
     api_key = sys.argv[1]
-    print("API KEY = " + api_key)
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Charset": "application/x-www-form-urlencoded; charset=UTF-8",
-        "Origin": "https://developer.riotgames.com",
-        "X-Riot-Token": api_key
-    }
-
     if len(sys.argv) == 4:  # py scraper.py <API_KEY> <rank> <tier>
-        main(sys.argv[2].upper(), sys.argv[3].upper())
+        main(apiKey=api_key, tier=sys.argv[2].upper(), rank=sys.argv[3].upper())
     else:
-        main()
+        main(apiKey=api_key)
