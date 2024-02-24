@@ -230,9 +230,9 @@ def get_matchlist_by_rank(tier, rank):
 def get_fname(tier, rank, chunk_num = None):
     date_str = date.today().strftime("%d-%m-%Y")
     if chunk_num:
-        return f"{tier}-{rank}_{date_str}_{chunk_num}"
+        return f"{tier}-{rank}_{date_str}_{chunk_num}.csv"
     else: 
-        return f"{tier}-{rank}_{date_str}"
+        return f"{tier}-{rank}_{date_str}.csv"
 
 def main(apiKey, tier='PLATINUM', rank='II', local = False):
     global headers 
@@ -246,7 +246,7 @@ def main(apiKey, tier='PLATINUM', rank='II', local = False):
 
     match_ids = get_matchlist_by_rank(tier, rank)
     chunk_num = 0
-    filepath = f"../data/{get_fname(tier, rank)}.csv"
+    filepath = f"../data/{get_fname(tier, rank)}"
     csv_fptr = open(filepath, 'w')
 
 
@@ -268,7 +268,7 @@ def main(apiKey, tier='PLATINUM', rank='II', local = False):
             # do cloud util SHIT: upload contents of working file and then clear it to be populated for next chunk upload
             if row_count % 2 == 0 and not local: 
                 row_count = 0 
-                cloudutils.upload(filepath, get_fname(tier, rank, chunk_num))
+                cloudutils.upload( get_fname(tier, rank, chunk_num), filepath)
                 print(f"UPLOADING CHUNK {chunk_num}: {get_fname(tier, rank, chunk_num)}") 
                 chunk_num = chunk_num + 1
                 csv_fptr.close() 
