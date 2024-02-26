@@ -5,7 +5,8 @@ from googleapiclient.http import MediaIoBaseDownload
 from googleapiclient.http import MediaFileUpload
 from googleapiclient.errors import HttpError
 import io
-import os
+import pandas as pd
+import os 
 
 # Helper func
 def dict_append(map, key, val):
@@ -100,7 +101,40 @@ def download(fname):
     except HttpError as error:
         print(f'\tAn error occurred: {error}')
         return 1
+    
+# naming convention = filename_date_<OPTIONAL chunknum>; find all files with same filename and date; 
+# if file has chunknum then merge into single file -> filename_date
+def merge_chunkedfiles(fname): 
+    all_fnames = name_map.keys()
+    merge_map = dict()
 
+    # find all files that match fname and are chunked
+    for file in all_fnames:
+        file_arr = file.split("_")
+        if file_arr[0] == fname and len(file_arr) == 3: 
+            if merge_map.get(file_arr[1]):
+                merge_map[file_arr[1]].append(file)
+            else:
+                merge_map[file_arr[1]] = [file]
+    
+    print(merge_map)
+    for k in merge_map.keys():
+        df_file = None
+        for v in merge_map[k]: 
+            download(v)
+            df_temp = pd.read_csv(v)
+            if df_file == None:
+                df_file = df_temp 
+            else: 
+                df_file = pd.concat([df_temp, df_file], ignore_index=True)
+            os.remove(v)
+        
+        merged_fname = "{fname}_{k}.csv"
+        df_file.to_csv(merged_fname)
+        upload(merged_fname, merged_fname)
+        os.remove(merged_fname)
+
+        
 # If directly running this script instead of importing, can use as cmdline cloud 'shell' 
 if __name__ == '__main__':
     print("######################### GOOGLE DRIVE SHELL ###############################") 
@@ -116,9 +150,16 @@ if __name__ == '__main__':
                       ls: print value_counts() of all files.name
                       namemap: print raw name map that 'ls' is derived from
                       exit: go figure
-                      upload <cloud filename> <filepath>
+                      upload <cloud filename> <filepath>:
+                      \tUploads file at <filepath> to Google Drive as <cloud filename>
                       del <cloud filename>
+                      \tDeletes all occurrences of <cloud filename> on Google Drive
                       download <cloud filename>
+                      \tDownloads all occurences of <cloud filename> on Google Drive to THIS DIR
+                      \tNOTE: IF THERE ARE MULTIPLE OCCURENCES, they will be separated by a suffix 
+                      merge <fileprefix>
+                      \tMerges chunks of all files with same fileprefix and date into a single file. WORKS ONCSVS WITH DEFINED COLUMNS ONLY.
+                      \tNote that the naming convention here is <fileprefix>_dd-mm-yyyy_<OPTIONAL chunknum>.csv
                       """)
             case "ls": 
                 for k in name_map.keys():
@@ -138,6 +179,12 @@ if __name__ == '__main__':
                     print("\tSyntax error. Command should look like 'download <filename>'")
                 else: 
                     download(inpt[1])
+            case "merge": 
+                if len(inpt) != 2: 
+                    print("\tSyntax error. Command should look like 'merge <fileprefix>")
+                else: 
+                    merge_chunkedfiles(inpt[1])
             case "namemap":
                 print(name_map)
-            
+            case _: 
+                print("Command not recognized. Type 'help' for all cmds")
