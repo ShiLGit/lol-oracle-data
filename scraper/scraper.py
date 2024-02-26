@@ -189,7 +189,6 @@ def process_matchdata(mid):
 
         # get team avg
         for k in entry_data[team_key].keys():
-            print(denoms)
             if entry_data[team_key][k] != None:
                 if denoms[k] == 0:
                     print(f"denom {k} computed to be 0!?!")
@@ -290,4 +289,4 @@ if __name__ == '__main__':
     if len(sys.argv) == 4:  # py scraper.py <API_KEY> <rank> <tier>
         main(apiKey=api_key, tier=sys.argv[2].upper(), rank=sys.argv[3].upper(), local = True)
     else:
-        main(apiKey=api_key)
+        main(apiKey=api_key, local = True) 

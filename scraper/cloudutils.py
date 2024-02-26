@@ -104,9 +104,9 @@ def download(fname):
     
 # naming convention = filename_date_<OPTIONAL chunknum>; find all files with same filename and date; 
 # if file has chunknum then merge into single file -> filename_date
-def merge_chunkedfiles(fname): 
+def merge_chunkedfiles(fname, cleanup = False): 
     all_fnames = name_map.keys()
-    merge_map = dict()
+    merge_map = dict() # {date_x: [filenames that matchfname and are dated to date_x]}
 
     # find all files that match fname and are chunked
     for file in all_fnames:
@@ -119,17 +119,16 @@ def merge_chunkedfiles(fname):
     
     print(merge_map)
     for k in merge_map.keys():
-        df_file = None
+        df_file = pd.DataFrame()
         for v in merge_map[k]: 
             download(v)
             df_temp = pd.read_csv(v)
-            if df_file == None:
-                df_file = df_temp 
-            else: 
-                df_file = pd.concat([df_temp, df_file], ignore_index=True)
+            df_file = pd.concat([df_temp, df_file], ignore_index=True)
             os.remove(v)
+            if cleanup:
+                delete_by_fname(v)
         
-        merged_fname = "{fname}_{k}.csv"
+        merged_fname = f"{fname}_{k}.csv"
         df_file.to_csv(merged_fname)
         upload(merged_fname, merged_fname)
         os.remove(merged_fname)
@@ -157,9 +156,10 @@ if __name__ == '__main__':
                       download <cloud filename>
                       \tDownloads all occurences of <cloud filename> on Google Drive to THIS DIR
                       \tNOTE: IF THERE ARE MULTIPLE OCCURENCES, they will be separated by a suffix 
-                      merge <fileprefix>
+                      merge <fileprefix> <OPTIONAL cleanup>
                       \tMerges chunks of all files with same fileprefix and date into a single file. WORKS ONCSVS WITH DEFINED COLUMNS ONLY.
                       \tNote that the naming convention here is <fileprefix>_dd-mm-yyyy_<OPTIONAL chunknum>.csv
+                      \tIf cleanup param is provided (i.e. a third flag exists -> value doesn't matter LOL!), then delete chunk files on Google Drive
                       """)
             case "ls": 
                 for k in name_map.keys():
@@ -180,10 +180,12 @@ if __name__ == '__main__':
                 else: 
                     download(inpt[1])
             case "merge": 
-                if len(inpt) != 2: 
-                    print("\tSyntax error. Command should look like 'merge <fileprefix>")
-                else: 
+                if len(inpt) < 2: 
+                    print("\tSyntax error. Command should look like 'merge <fileprefix> <OPTIONAL cleanup>")
+                elif len(inpt) == 2: 
                     merge_chunkedfiles(inpt[1])
+                else:
+                    merge_chunkedfiles(inpt[1], True)
             case "namemap":
                 print(name_map)
             case _: 
