@@ -97,7 +97,6 @@ def compute_lastplaytime(stat):
 
 
 def get_champ_stats(puuid, cid):
-    data = None
     try:
         data = request_decorator(
             f'https://na1.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/{puuid}/by-champion/{cid}')
@@ -112,6 +111,7 @@ def get_champ_stats(puuid, cid):
     except Exception as e:
         printerr("get_champ_stats", e)
         print(f"\tRESPONSE DATA = {data}")
+        return None
 
 
 def get_player_entry(sid, cid, puuid):
@@ -167,13 +167,13 @@ def process_matchdata(mid):
                   'inactive': 0.0, 'veteran': 0.0, 'championPoints': 0, 'lastPlayTime': 0}
 
         for summoner in summoners[team_key]:
-            puuid = summoner['puuid']
-            sid = get_sid_from_puuid(puuid=puuid)
-            player_entry = get_player_entry(sid=sid, cid=summoner['cid'], puuid = puuid)
-            if entry_data[team_key] == None:
-                entry_data[team_key] = player_entry
-
             try:
+                puuid = summoner['puuid']
+                sid = get_sid_from_puuid(puuid=puuid)
+                player_entry = get_player_entry(sid=sid, cid=summoner['cid'], puuid = puuid)
+                if entry_data[team_key] == None:
+                    entry_data[team_key] = player_entry
+
                 for k in entry_data[team_key].keys():
                     if player_entry[k] != None:
                         # Special case: some fields might have a None entry (e.g. lastplaytime) instead of 0. handle accordingly
