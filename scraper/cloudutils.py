@@ -107,7 +107,7 @@ def download(fname):
 def merge_chunkedfiles(fname, cleanup = False): 
     all_fnames = name_map.keys()
     merge_map = dict() # {date_x: [filenames that matchfname and are dated to date_x]}
-
+    return_val = 0
     # find all files that match fname and are chunked
     for file in all_fnames:
         file_arr = file.split("_")
@@ -121,17 +121,19 @@ def merge_chunkedfiles(fname, cleanup = False):
     for k in merge_map.keys():
         df_file = pd.DataFrame()
         for v in merge_map[k]: 
-            download(v)
+            return_val = return_val + download(v)
             df_temp = pd.read_csv(v)
             df_file = pd.concat([df_temp, df_file], ignore_index=True)
             os.remove(v)
             if cleanup:
-                delete_by_fname(v)
+                return_val = return_val + delete_by_fname(v)
         
         merged_fname = f"{fname}_{k}.csv"
         df_file.to_csv(merged_fname)
-        upload(merged_fname, merged_fname)
+        return_val = return_val + upload(merged_fname, merged_fname)
         os.remove(merged_fname)
+
+    return 1 if return_val > 0 else 0
 
         
 # If directly running this script instead of importing, can use as cmdline cloud 'shell' 
@@ -188,5 +190,7 @@ if __name__ == '__main__':
                     merge_chunkedfiles(inpt[1], True)
             case "namemap":
                 print(name_map)
+            case "exit": 
+                pass
             case _: 
                 print("Command not recognized. Type 'help' for all cmds")
