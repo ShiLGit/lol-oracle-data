@@ -9,12 +9,13 @@ import pprint
 
 pp = pprint.PrettyPrinter(indent=4)
 
-fname = 'data.csv'
+fname = './data/PLATINUM-II_27-02-2024_z.csv'
 if len(sys.argv) == 2:
     fname = sys.argv[1]
 
 # partition into 7:3 training-testing sets
 df = pd.read_csv(fname)
+df = df[[col for col in df.columns if col != 'm_id']] # take out m_id (= match id) -> no bearing on actual match stats
 print(f"TRAINING ON DATASET {fname}")
 train_bound = int(df.shape[0]*0.7)
 
