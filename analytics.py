@@ -20,18 +20,19 @@ def fitplot_PCA(df):
 
 def fitplot_TSNE(df):
     tsne = TSNE(2, random_state=1)
-    tsne_res = tsne.fit_transform(df)
+    features = [col for col in df.columns if col != 'outcome']
+    tsne_res = tsne.fit_transform(df[features])
     tsne_df = pd.DataFrame({'ax1': tsne_res[:,0], 'ax2': tsne_res[:, 1], 'outcome': df['outcome']})
     fig = sns.scatterplot(x='ax1', y='ax2', hue='outcome', data=tsne_df)
     fig.get_figure().savefig('TSNE.png')
 
 if __name__ == '__main__':
-    fname="concat.csv"
+    fname="./data/PLATINUM-II_27-02-2024_z.csv"
     df = pd.read_csv(fname)
-    df = df.loc[:, ['hot_streak','wr','rank','outcome']]
+    df = df[['hot_streak','wr','rank','outcome']]
     df = df.dropna()
 
     #fitplot_TSNE(df)
-    fitplot_PCA(df.loc[[i for i in range(100)], ['wr', 'rank', 'outcome']]) #excluded hot_streak since it's categorical
+    fitplot_TSNE(df.loc[[i for i in range(100)], ['wr', 'rank', 'outcome']]) #excluded hot_streak since it's categorical
 
 
