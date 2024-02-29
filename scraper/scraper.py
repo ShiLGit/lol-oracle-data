@@ -227,11 +227,12 @@ def get_matchlist_by_rank(tier, rank):
     return match_ids
 
 def get_fname(tier, rank, chunk_num = None):
-    date_str = date.today().strftime("%d-%m-%Y")
-    if chunk_num:
+    date_str = date.today().strftime("%d-%m")
+    if chunk_num != None:
         return f"{tier}-{rank}_{date_str}_{chunk_num}.csv"
     else: 
         return f"{tier}-{rank}_{date_str}.csv"
+
 
 def main(apiKey, tier='PLATINUM', rank='II', local = False):
     global headers 
@@ -265,13 +266,17 @@ def main(apiKey, tier='PLATINUM', rank='II', local = False):
                 csv_fptr.flush()
 
             # do cloud util SHIT: upload contents of working file and then clear it to be populated for next chunk upload
-            if row_count % 150 == 0 and not local: 
+            if row_count % 4 == 0 and not local: 
                 row_count = 0 
-                cloudutils.upload( get_fname(tier, rank, chunk_num), filepath)
+                cloudutils.upload(get_fname(tier, rank, chunk_num), filepath)
                 print(f"UPLOADING CHUNK {chunk_num}: {get_fname(tier, rank, chunk_num)}") 
                 chunk_num = chunk_num + 1
-                csv_fptr.close() 
+                csv_fptr.close()
                 csv_fptr = open(filepath, 'w')
+                writer = csv.DictWriter(csv_fptr, fieldnames=['hot_streak', 'wr', 'rank', 'freshBlood',
+                                                    'inactive', 'veteran', 'championPoints', 'lastPlayTime', 'outcome', 'm_id'])
+                writer.writeheader()
+                
 
             row_count = row_count + 1
         except Exception as e:
@@ -289,4 +294,4 @@ if __name__ == '__main__':
     if len(sys.argv) == 4:  # py scraper.py <API_KEY> <rank> <tier>
         main(apiKey=api_key, tier=sys.argv[2].upper(), rank=sys.argv[3].upper(), local = True)
     else:
-        main(apiKey=api_key, local = True) 
+        main(apiKey=api_key, local = False) 
