@@ -139,7 +139,7 @@ def merge_chunkedfiles(fname, cleanup = False):
 # If directly running this script instead of importing, can use as cmdline cloud 'shell' 
 if __name__ == '__main__':
     print("######################### GOOGLE DRIVE SHELL ###############################") 
-    print("'help' for help\n'quit' to exit shell\n")
+    print("'help' for help\n'exit' to exit shell\n")
     cmd = ""
     while cmd != "exit":
         inpt = input("Enter command: ").split(" ")
@@ -147,22 +147,22 @@ if __name__ == '__main__':
         match cmd: 
             case "help": 
                 print("""
-                      COMMANDS *********************************
-                      ls: print value_counts() of all files.name
-                      namemap: print raw name map that 'ls' is derived from
-                      exit: go figure
-                      upload <cloud filename> <filepath>:
-                      \tUploads file at <filepath> to Google Drive as <cloud filename>
-                      del <cloud filename>
-                      \tDeletes all occurrences of <cloud filename> on Google Drive
-                      download <cloud filename>
-                      \tDownloads all occurences of <cloud filename> on Google Drive to THIS DIR
-                      \tNOTE: IF THERE ARE MULTIPLE OCCURENCES, they will be separated by a suffix 
-                      merge <fileprefix> <OPTIONAL cleanup>
-                      \tMerges chunks of all files with same fileprefix and date into a single file. WORKS ONCSVS WITH DEFINED COLUMNS ONLY.
-                      \tNote that the naming convention here is <fileprefix>_dd-mm-yyyy_<OPTIONAL chunknum>.csv
-                      \tIf cleanup param is provided (i.e. a third flag exists -> value doesn't matter LOL!), then delete chunk files on Google Drive
-                      """)
+*************************************************** COMMANDS ***************************************************************
+ls: print value_counts() of all files.name
+namemap: print raw name map that 'ls' is derived from
+exit: go figure
+upload <cloud filename> <filepath>:
+\tUploads file at <filepath> to Google Drive as <cloud filename>
+del <cloud filename>
+\tDeletes all occurrences of <cloud filename> on Google Drive
+download <cloud filename>
+\tDownloads all occurences of <cloud filename> on Google Drive to THIS DIR
+\tNOTE: IF THERE ARE MULTIPLE OCCURENCES, they will be separated by a suffix 
+merge <fileprefix> <OPTIONAL cleanup>
+\tMerges chunks of all files with same fileprefix and date into a single file. WORKS ONCSVS WITH DEFINED COLUMNS ONLY.
+\tNote that the naming convention here is <fileprefix>_dd-mm-yyyy_<OPTIONAL chunknum>.csv
+\tIf cleanup param is provided (i.e. a third flag exists -> value doesn't matter LOL!), then delete chunk files on Google Drive
+""")
             case "ls": 
                 for k in name_map.keys():
                     print(f"\t{k}: {len(name_map[k])} instance(s)")
