@@ -72,6 +72,7 @@ def delete_by_fname(fname):
 def download(fname): 
     if name_map.get(fname) == None: 
         print("\tNo such file exists")
+        return 1
     try: 
         num_instances = len(name_map[fname])
         for i in range(0, num_instances):
