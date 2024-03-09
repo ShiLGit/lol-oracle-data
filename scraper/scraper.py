@@ -213,15 +213,14 @@ def get_matchlist_by_rank(tier, rank):
 
     # populate list with match ids
     print("***********************************************\nPOPULATING MATCH LIST\n******************************************\n")
-    for i in range(1, 2): #DEBUG 
+    for i in range(1, 5): #DEBUG 
         try:
             namelist = get_namelist(tier=tier, rank=rank, page=i)
             for name in namelist:
                 ids = get_summoner_ids(name=name)
                 match_ids.extend(get_matchlist(
                     puuid=ids['puuid'], existing_mids=match_ids))
-                break  # REMOVE THIS BREKA >> ADDED JUST TO REDUCE # COLLECTED MATCHIDS BECAUSE IT TAKES TOO LONG DURING DEBUG
-
+                
         except Exception as e:
             printerr('(main, populate m_id list)', e)
     return match_ids
@@ -233,8 +232,14 @@ def get_fname(tier, rank, chunk_num = None):
     else: 
         return f"{tier}-{rank}_{date_str}.csv"
 
+def validate_apiKey():
+    res = request_decorator("https://na1.api.riotgames.com/lol/platform/v3/champion-rotations")
+    status = res.get('status')
+    if status.get('status_code') == 403: 
+        return False 
+    return True
 
-def main(apiKey, tier='PLATINUM', rank='II', local = False):
+def main(apiKey, tier='PLATINUM', rank='IV', local = False):
     global headers 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36",
@@ -243,6 +248,10 @@ def main(apiKey, tier='PLATINUM', rank='II', local = False):
         "Origin": "https://developer.riotgames.com",
         "X-Riot-Token": apiKey
     }
+
+    if validate_apiKey() == False: 
+        print("Invalid API key. Exiting")
+        return {"STATUS": "FAILED", "MESSAGE": "API key is invalid"}
 
     match_ids = get_matchlist_by_rank(tier, rank)
     chunk_num = 0
@@ -264,9 +273,11 @@ def main(apiKey, tier='PLATINUM', rank='II', local = False):
                 writer.writerow(row)
                 print("Writing rows..")
                 csv_fptr.flush()
-
-            # do cloud util SHIT: upload contents of working file and then clear it to be populated for next chunk upload
-            if row_count % 4 == 0 and not local: 
+                row_count = row_count + 1
+            
+            EXITCHUNKS = 0
+            # use google drive: upload contents of working file and then clear it to be populated for next chunk upload
+            if row_count % 15 == 0 and not local: 
                 row_count = 0 
                 cloudutils.upload(get_fname(tier, rank, chunk_num), filepath)
                 print(f"UPLOADING CHUNK {chunk_num}: {get_fname(tier, rank, chunk_num)}") 
@@ -276,14 +287,18 @@ def main(apiKey, tier='PLATINUM', rank='II', local = False):
                 writer = csv.DictWriter(csv_fptr, fieldnames=['hot_streak', 'wr', 'rank', 'freshBlood',
                                                     'inactive', 'veteran', 'championPoints', 'lastPlayTime', 'outcome', 'm_id'])
                 writer.writeheader()
-                
+                EXITCHUNKS = EXITCHUNKS + 1 
+            
+            if EXITCHUNKS == 3: 
+                print("FINISHED!!!")
+                csv_fptr.close()
+                return
 
-            row_count = row_count + 1
         except Exception as e:
             printerr('(main, process_matchdata loop)', e)
 
     csv_fptr.close()
-
+    return {"STATUS": "SUCCESS", "MESSAGE": "Job completed successfully"}
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         print("Must include api key in run command (simplest case: py scraper.py <api key>). Exiting")
