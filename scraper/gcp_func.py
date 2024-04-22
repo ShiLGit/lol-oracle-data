@@ -38,7 +38,7 @@ def process_request(request):
     """
     request_json = request.get_json(silent=True)
 
-    validate_results = validate_request("request_json")
+    validate_results = validate_request(request_json)
     if validate_results["isValid"] == False:
        return validate_results 
        
