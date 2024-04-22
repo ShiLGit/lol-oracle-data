@@ -1,6 +1,13 @@
 import functions_framework
 import scraper
 import constants
+
+# REQUEST TEMPLATE: 
+# {
+#   "api_key": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+#   "rank": "GOLD",
+#   "division": "II"
+# }
 def validate_request(request_json): 
     if not request_json: 
        return {"isValid": False, "msg": "Request is null!"}
@@ -30,14 +37,17 @@ def process_request(request):
         <https://flask.palletsprojects.com/en/1.1.x/api/#flask.make_response>.
     """
     request_json = request.get_json(silent=True)
-    request_args = request.args
 
-    if not (request_json and "api_key" in request_json and "rank" in request_json and "division" in request_json):
-      return "MISSING API KEY??"
-
+    validate_results = validate_request("request_json")
+    if validate_results["isValid"] == False:
+       return validate_results 
+       
     api_key = request_json["api_key"]
     rank = request_json["rank"]
     div = request_json["division"]
+
+    return scraper.main(apiKey = api_key, tier = rank, rank = div, local = False)
+
 
   
 

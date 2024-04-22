@@ -296,6 +296,7 @@ def main(apiKey, tier='PLATINUM', rank='IV', local = False):
 
         except Exception as e:
             printerr('(main, process_matchdata loop)', e)
+            return {"STATUS": "FAILURE", "MESSAGE": "FAILURE IN PROCESS_MATCHDATA LOOP: " + e}
 
     csv_fptr.close()
     return {"STATUS": "SUCCESS", "MESSAGE": "Job completed successfully"}
