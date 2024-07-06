@@ -235,7 +235,7 @@ def get_fname(tier, rank, chunk_num = None):
 def validate_apiKey():
     res = request_decorator("https://na1.api.riotgames.com/lol/platform/v3/champion-rotations")
     status = res.get('status')
-    if status.get('status_code') == 403: 
+    if status and status.get('status_code') == 403: 
         return False 
     return True
 
