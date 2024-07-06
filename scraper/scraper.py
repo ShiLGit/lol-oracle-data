@@ -50,17 +50,18 @@ def get_namelist(tier, rank, page):
     try:
         data = request_decorator(
             f'https://na1.api.riotgames.com/lol/league/v4/entries/RANKED_SOLO_5x5/{tier}/{rank}?page={page}')
-        namelist = [d["summonerName"] for d in data]
+        namelist = [d["summonerId"] for d in data]
         return namelist
     except Exception as e:
         printerr('get_namelist', e, data)
         return None
 
 
-def get_summoner_ids(name):
+def get_summoner_ids(summonerId):
     to_return = dict()
+    
     data = request_decorator(
-        f'https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/{name}')
+        f'https://na1.api.riotgames.com/lol/summoner/v4/summoners/{summonerId}')
 
     to_return['id'] = data['id']
     to_return['puuid'] = data['puuid']
@@ -215,9 +216,9 @@ def get_matchlist_by_rank(tier, rank):
     print("***********************************************\nPOPULATING MATCH LIST\n******************************************\n")
     for i in range(1, 5): #DEBUG 
         try:
-            namelist = get_namelist(tier=tier, rank=rank, page=i)
-            for name in namelist:
-                ids = get_summoner_ids(name=name)
+            summonerIds = get_namelist(tier=tier, rank=rank, page=i)
+            for summonerId in summonerIds:
+                ids = get_summoner_ids(summonerId=summonerId)
                 match_ids.extend(get_matchlist(
                     puuid=ids['puuid'], existing_mids=match_ids))
                 
