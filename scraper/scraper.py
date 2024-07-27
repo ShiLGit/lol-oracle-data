@@ -70,21 +70,30 @@ def get_summoner_ids(summonerId):
 
 def get_ranked_stats(sid):
     data = None
+    to_return = None
     try:
         data = request_decorator(
-            f'https://na1.api.riotgames.com/lol/league/v4/entries/by-summoner/{sid}')[0]
-        to_return = dict()
-        to_return['hot_streak'] = 1.0 if data['hotStreak'] == True else 0.0
-        to_return['wr'] = data['wins']/(data['wins'] + data['losses'])
-        to_return['rank'] = constants.map_rank(data['tier'], data['rank'])
-        to_return['freshBlood'] = data['freshBlood']
-        to_return['inactive'] = data['inactive']
-        to_return['veteran'] = data['veteran']
-        return to_return
+            f'https://na1.api.riotgames.com/lol/league/v4/entries/by-summoner/{sid}')
+        for ranked_summary in data:
+            if ranked_summary['queueType'] == 'RANKED_SOLO_5x5':
+                data = ranked_summary
+                to_return = dict()
+                to_return['hot_streak'] = 1.0 if data['hotStreak'] == True else 0.0
+                to_return['wr'] = data['wins']/(data['wins'] + data['losses'])
+                to_return['rank'] = constants.map_rank(data['tier'], data['rank'])
+                to_return['freshBlood'] = data['freshBlood']
+                to_return['inactive'] = data['inactive']
+                to_return['veteran'] = data['veteran']
+                return to_return
+        
     except Exception as e:
         printerr("get_ranked_stats", e)
         print(f"\tRESPONSE DATA = {data}")
 
+    if to_return == None:
+        raise Exception("Attempt to get ranked stats of player failed. No soloqueue data?")
+
+    return to_return
 
 # stat = lastPlayTime from req obj of get_champ_stats. for None handling, just return max lastplaytime of 90 days
 def compute_lastplaytime(stat):
@@ -214,9 +223,9 @@ def get_matchlist_by_rank(tier, rank):
 
     # populate list with match ids
     print("***********************************************\nPOPULATING MATCH LIST\n******************************************\n")
-    for i in range(1, 5): #DEBUG 
+    for i in range(1, 2): #DEBUG 
         try:
-            summonerIds = get_namelist(tier=tier, rank=rank, page=i)
+            summonerIds = [get_namelist(tier=tier, rank=rank, page=i)[0]]
             for summonerId in summonerIds:
                 ids = get_summoner_ids(summonerId=summonerId)
                 match_ids.extend(get_matchlist(
