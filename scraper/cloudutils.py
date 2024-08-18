@@ -25,16 +25,19 @@ credentials = service_account.Credentials.from_service_account_file(
                               scopes=scope)
 service = build('drive', 'v3', credentials=credentials)
 
-# Get all files on the drive 
-results = service.files().list(pageSize=1000, fields="nextPageToken, files(id, name, mimeType, size, modifiedTime)").execute()
-items = results.get('files', [])
-name_map = dict() 
+def list_files():
+    # Get all files on the drive 
+    results = service.files().list(pageSize=1000, fields="nextPageToken, files(id, name, mimeType, size, modifiedTime)").execute()
+    items = results.get('files', [])
+    name_map = dict() 
 
-#Generate map {'filename': [list of ids under that file name]}
-for r in results['files']:
-    dict_append(name_map, r['name'], r['id'])
-print(name_map)
+    #Generate map {'filename': [list of ids under that file name]}
+    for r in results['files']:
+        dict_append(name_map, r['name'], r['id'])
+    #print(name_map)
+    return name_map
 
+name_map = list_files()
 
 ## START OF ACTUAL UTIL FUNCTIONS ######################################################################################
 # Upload file at fpath to google drive api as dst_fname 
@@ -165,6 +168,7 @@ merge <fileprefix> <OPTIONAL cleanup>
 \tIf cleanup param is provided (i.e. a third flag exists -> value doesn't matter LOL!), then delete chunk files on Google Drive
 """)
             case "ls": 
+                name_map = list_files()
                 for k in name_map.keys():
                     print(f"\t{k}: {len(name_map[k])} instance(s)")
             case "upload": 
