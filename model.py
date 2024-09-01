@@ -9,7 +9,7 @@ import pprint
 
 pp = pprint.PrettyPrinter(indent=4)
 
-fname = './data/PLATINUM-II_27-02-2024_z.csv'
+fname = './data/aggregate.csv'
 if len(sys.argv) == 2:
     fname = sys.argv[1]
 
